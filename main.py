@@ -1,9 +1,14 @@
+import json
 import logging
 import numpy as np
 import sounddevice as sd
-from silero_vad import load_silero_vad, VADIterator
+from silero_vad import (load_silero_vad, 
+                        VADIterator, 
+                        read_audio, 
+                        get_speech_timestamps)
 import torch
 import os
+import argparse 
 
 import torchaudio
 
@@ -12,6 +17,7 @@ if not hasattr(torchaudio, "list_audio_backends"):
     torchaudio.list_audio_backends = lambda: [""]  # type: ignore
 
 from lib.log import get_system_logger
+from lib.vad_data_loader import VADDataLoader
 
 from speechbrain.inference.classifiers import EncoderClassifier
 
@@ -32,6 +38,8 @@ inference = Inference(model)
 
 SAMPLING_RATE = 16_000
 VAD_WINDOW_SIZE = 512
+
+TEST_AUDIO_PATH = "./datasets/amicorpus/ES2016a/audio/ES2016a.Mix-Headset.wav"
 
 # Configure root logger
 logging.basicConfig(
@@ -68,16 +76,13 @@ def extract_embedding(speaker_audio):
     else:
         embedding = np.asarray(embedding).squeeze()
 
-    logger.debug(embedding)
-
     with open("data.csv", "a+") as f:
         np.savetxt(f, embedding.reshape(1, -1), delimiter=",")
 
     return embedding
 
-def main():
-    logger.info("Diarization system started.")
-
+def live_system():
+    logger.info("Live diarization system started.")
     # 512 samples at 16 kHz = 32 ms latency per VAD decision
     chunk_size = VAD_WINDOW_SIZE
     audio_buffer = np.array([], dtype=np.float32)
@@ -124,11 +129,48 @@ def main():
         while True:
             sd.sleep(50)
 
+def main(audio_path: str):
+    logger.info("Dataset diarization system started.")
+    wav = read_audio(audio_path, sampling_rate=SAMPLING_RATE)
+    speech_timestamps = get_speech_timestamps(
+        wav,
+        silero_vad_model,
+        return_seconds=True, 
+        sampling_rate=SAMPLING_RATE, 
+        threshold=0.35,                
+        min_speech_duration_ms=300,    
+        min_silence_duration_ms=500,   
+        speech_pad_ms=200,
+    )
+    with open("seconds.json", "w+") as file:
+        file.write(json.dumps(speech_timestamps))
+        file.close()
+
+    wav_segments = VADDataLoader.load_from_json("seconds.json", TEST_AUDIO_PATH)
+    
+    for segment in wav_segments:
+        extract_embedding(segment)
+
+    logger.info("Written vad seconds to file.")
+
+
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-p", "--path", help="Path to an audio file.", type=str, required=False)
 
 if __name__ == "__main__":
     logger.debug("Starting...")
+    
+    args = parser.parse_args()
+
+    path = args.path
+
     try:
-        main()
+        if path:
+            main(path)
+        else:
+            live_system()
     except KeyboardInterrupt:
         logger.info("Stopped by user")
     finally:
