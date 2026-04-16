@@ -3,7 +3,7 @@ import os
 import numpy as np
 import torch
 from dotenv import load_dotenv
-from pyannote.audio import Pipeline
+from pyannote.audio.pipelines import 
 
 from lib.models.module import DiarizationModule
 from lib.const import SAMPLING_RATE
