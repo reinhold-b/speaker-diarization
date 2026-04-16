@@ -9,8 +9,9 @@ from silero_vad import (load_silero_vad,
 import torch
 import os
 import argparse 
-
 import torchaudio
+import tqdm
+from lib.const import *
 
 if not hasattr(torchaudio, "list_audio_backends"):
     print("here")
@@ -18,11 +19,8 @@ if not hasattr(torchaudio, "list_audio_backends"):
 
 from lib.log import get_system_logger
 from lib.vad_data_loader import VADDataLoader
-
 from speechbrain.inference.classifiers import EncoderClassifier
-
 from dotenv import load_dotenv
-
 from pyannote.audio import Inference, Model
 load_dotenv()
 
@@ -39,7 +37,6 @@ inference = Inference(model)
 SAMPLING_RATE = 16_000
 VAD_WINDOW_SIZE = 512
 
-TEST_AUDIO_PATH = "./datasets/amicorpus/ES2016a/audio/ES2016a.Mix-Headset.wav"
 
 # Configure root logger
 logging.basicConfig(
@@ -75,6 +72,9 @@ def extract_embedding(speaker_audio):
         embedding = embedding.squeeze().detach().cpu().numpy()
     else:
         embedding = np.asarray(embedding).squeeze()
+
+    if embedding.ndim == 2:
+        embedding = embedding.mean(axis=0)
 
     with open("data.csv", "a+") as f:
         np.savetxt(f, embedding.reshape(1, -1), delimiter=",")
@@ -132,6 +132,8 @@ def live_system():
 def main(audio_path: str):
     logger.info("Dataset diarization system started.")
     wav = read_audio(audio_path, sampling_rate=SAMPLING_RATE)
+
+    logger.info("Starting timestamo extraction.")
     speech_timestamps = get_speech_timestamps(
         wav,
         silero_vad_model,
@@ -139,19 +141,26 @@ def main(audio_path: str):
         sampling_rate=SAMPLING_RATE, 
         threshold=0.35,                
         min_speech_duration_ms=300,    
+        max_speech_duration_s=2.5,    
         min_silence_duration_ms=500,   
-        speech_pad_ms=200,
+        speech_pad_ms=100,
     )
+
     with open("seconds.json", "w+") as file:
         file.write(json.dumps(speech_timestamps))
         file.close()
 
+    logger.info("Extracted segments from audio and written to file.")
+
     wav_segments = VADDataLoader.load_from_json("seconds.json", TEST_AUDIO_PATH)
+
+    logger.info("Loaded VAD segments from audio.")
+    logger.info("Starting embedding extraction.")
     
-    for segment in wav_segments:
+    for segment in tqdm.tqdm(wav_segments):
         extract_embedding(segment)
 
-    logger.info("Written vad seconds to file.")
+    logger.info("Written embeddings to file.")
 
 
 

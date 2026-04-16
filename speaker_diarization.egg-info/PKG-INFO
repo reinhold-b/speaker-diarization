@@ -2,22 +2,33 @@ Metadata-Version: 2.4
 Name: speaker-diarization
 Version: 0.1.0
 Summary: Add your description here
-Requires-Python: >=3.13
+Requires-Python: <3.13,>=3.12
 Description-Content-Type: text/markdown
 Requires-Dist: aiortc>=1.14.0
+Requires-Dist: huggingface-hub<1.0
 Requires-Dist: matplotlib>=3.10.8
 Requires-Dist: numpy>=2.4.4
 Requires-Dist: omegaconf>=2.3.0
 Requires-Dist: pandas>=3.0.1
 Requires-Dist: pip>=26.0.1
-Requires-Dist: pyannote-audio>=4.0.4
+Requires-Dist: pyannote-audio==4.0.4
 Requires-Dist: python-dotenv>=1.2.2
 Requires-Dist: requests>=2.33.0
 Requires-Dist: scikit-learn>=1.8.0
 Requires-Dist: silero-vad>=6.2.1
+Requires-Dist: simpleder>=0.0.5
 Requires-Dist: sounddevice>=0.5.5
 Requires-Dist: speechbrain>=1.0.3
 Requires-Dist: torch>=2.11.0
 Requires-Dist: torchaudio>=2.11.0
+Requires-Dist: tqdm>=4.67.3
 
 # Development of a speaker diarization system
+
+AIM: der of around 0.2
+
+tried pyannote and speechbrain with dbscan and cspace
+
+-> der were around 0.42 for both
+
+improving idea is to add overlapping detection to the pipeline
